@@ -4,9 +4,6 @@ from scipy.ndimage import gaussian_filter, sobel
 from PIL import Image
 import os
 
-# ==========================================
-# (a) Canny Edge Detection Implementation
-# ==========================================
 def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_threshold_ratio=0.15):
     """
     Applies Canny Edge Detection algorithm to an image array.
@@ -15,10 +12,8 @@ def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_
     # Standard luminance conversion
     img_gray = np.dot(image_array[..., :3], [0.2989, 0.5870, 0.1140])
 
-    # 1) Gaussian smoothing to reduce noise
     smoothed = gaussian_filter(img_gray, sigma=sigma)
 
-    # 2) Gradient-magnitude G and orientation computation at each pixel
     Gx = sobel(smoothed, axis=1)
     Gy = sobel(smoothed, axis=0)
     
@@ -27,16 +22,12 @@ def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_
     
     theta = np.arctan2(Gy, Gx)
 
-    # 3) Edge thinning by non-maximum suppression
     M, N = G.shape
     Z = np.zeros((M, N), dtype=np.float32)
     
-    # Convert angles from radians to degrees
     angle = theta * 180. / np.pi
     angle[angle < 0] += 180
 
-    # Quantize the unit vector u(p) to the 4 primary directions (0, 45, 90, 135)
-    # to compare against p+u(p) and p-u(p)
     for i in range(1, M-1):
         for j in range(1, N-1):
             ang = angle[i, j]
@@ -67,7 +58,6 @@ def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_
             else:
                 Z[i, j] = 0
 
-    # 4) Edge tracing via hysteresis thresholding
     high_thresh = Z.max() * high_threshold_ratio
     low_thresh = high_thresh * low_threshold_ratio
 
@@ -76,15 +66,12 @@ def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_
     WEAK = np.int32(50)
     STRONG = np.int32(255)
 
-    # First, select candidate pixels where ||v(p)||^2 > thresholdHigh
     strong_i, strong_j = np.where(Z >= high_thresh)
-    # Select weak edges
     weak_i, weak_j = np.where((Z <= high_thresh) & (Z >= low_thresh))
 
     res[strong_i, strong_j] = STRONG
     res[weak_i, weak_j] = WEAK
 
-    # Find all connected paths starting from strong edge pixels
     changed = True
     while changed:
         changed = False
@@ -98,18 +85,13 @@ def canny_edge_detection(image_array, sigma=1.5, low_threshold_ratio=0.05, high_
                         res[i, j] = STRONG
                         changed = True
 
-    # Suppress remaining weak edges that were not connected to strong edges
     res[res == WEAK] = 0
     
-    # Return binary boolean array
     return res == STRONG
 
-# ==========================================
-# (b) Display Original and Edge Detected Versions
-# ==========================================
 if __name__ == '__main__':
 
-    # Define parameters (Tune these free parameters for reasonable outputs)
+    # Tunable Hyper-Parameters
     sigma = 1.5               # Gaussian blur radius
     low_thresh_ratio = 0.05   # Hysteresis lower threshold ratio
     high_thresh_ratio = 0.15  # Hysteresis higher threshold ratio
@@ -120,7 +102,6 @@ if __name__ == '__main__':
         "../data/edge/rangoli.png"
     ]
     
-    # Ensure save directory exists
     os.makedirs("./img", exist_ok=True)
 
     for path in image_files:
@@ -132,16 +113,14 @@ if __name__ == '__main__':
             name_only, ext = os.path.splitext(filename)
 
             # To confirm all the images are RGB (hence 3-D) and none are gray scale
-            print(path)
-            print(np.array(img).shape)
+            # print(path)
+            # print(np.array(img).shape)
 
             # img_rgb = img.convert('RGB')
             img_rgb = img
             
-            # Convert the Pillow object into a NumPy array
             img_array = np.array(img_rgb)
             
-            # Apply the canny edge detection function
             edges_binary = canny_edge_detection(
                 img_array, 
                 sigma=sigma, 
@@ -149,7 +128,6 @@ if __name__ == '__main__':
                 high_threshold_ratio=high_thresh_ratio
             )
             
-            # Create the overlay image: detected edges drawn in black on original
             img_overlay = img_array.copy()
             img_overlay[edges_binary] = [0, 0, 0] # Set edge pixels to black
             
@@ -157,7 +135,6 @@ if __name__ == '__main__':
             Image.fromarray((edges_binary * 255).astype(np.uint8)).save(f"./img/{name_only}_binary_edges{ext}")
             Image.fromarray(img_overlay.astype(np.uint8)).save(f"./img/{name_only}_edges_overlay{ext}")
             
-            # Set up the plot with 1 row and 3 columns
             fig, axes = plt.subplots(1, 3, figsize=(18, 5))
             
             # 1. Plot Original Image
